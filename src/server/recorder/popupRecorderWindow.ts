@@ -21,6 +21,7 @@ export class PopupRecorderWindow implements RecorderWindow {
   private _window?: chrome.windows.Window;
   private id?: number;
   private _portPromise?: Promise<chrome.runtime.Port>;
+  private _isClosing = false;
   onMessage?: ({ type, event, params }: RecorderEventData) => void;
   hideApp?: () => any;
 
@@ -65,15 +66,19 @@ export class PopupRecorderWindow implements RecorderWindow {
   }
 
   async close() {
-    if (!this._portPromise)
+    if (!this._portPromise || this._isClosing)
       return;
 
-    this.hideApp?.();
-
-    if (this._window?.id)
-      chrome.windows.remove(this._window.id).catch(() => {});
-    this._portPromise?.then(port => port.disconnect()).catch(() => {});
-    this._window = undefined;
-    this._portPromise = undefined;
+    this._isClosing = true;
+    try {
+      this.hideApp?.();
+      if (this._window?.id)
+        chrome.windows.remove(this._window.id).catch(() => {});
+      this._portPromise?.then(port => port.disconnect()).catch(() => {});
+      this._window = undefined;
+      this._portPromise = undefined;
+    } finally {
+      this._isClosing = false;
+    }
   }
 }
